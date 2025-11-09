@@ -26,7 +26,7 @@ fn compute_area_and_perim((ch, x, y): (char, usize, usize), grid: &mut impl Grid
 
 	for
 		NeighborhoodMember { abs_x, abs_y, .. }
-		in grid.get_neighborhood(x, y, VON_NEUMANN_NEIGHBORHOOD).of_units()
+		in grid.get_neighborhood(x, y, VON_NEUMANN_NEIGHBORHOOD)
 	{
 		let item = grid.get(abs_x, abs_y);
 		if item.ch == ch {

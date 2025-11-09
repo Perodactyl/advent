@@ -57,72 +57,37 @@ pub trait Grid<T> {
 		None
 	}
 	///Returns a Neighborhood around a certain cell.
-	fn get_neighborhood(&self, x: usize, y: usize, structure: &[(isize, isize)]) -> Neighborhood<&T> {
+	fn get_neighborhood(&self, x: usize, y: usize, structure: &[(isize, isize)]) -> Neighborhood {
 		let mut results = Vec::with_capacity(8);
 		for (ox, oy) in structure.iter().copied() {
 			let Some(neighbor_x) = x.checked_add_signed(ox) else { continue };
 			let Some(neighbor_y) = y.checked_add_signed(oy) else { continue };
-			let Some(cell) = self.get_checked(neighbor_x, neighbor_y) else { continue };
+			let Some(_) = self.get_checked(neighbor_x, neighbor_y) else { continue };
 			results.push(NeighborhoodMember {
 				rel_x: ox,
 				rel_y: oy,
 				abs_x: neighbor_x,
 				abs_y: neighbor_y,
-				item: cell
 			});
 		}
 
 		results.shrink_to_fit();
 
-		Neighborhood { members: results }
+		results
 	}
 }
 
 ///Stores the absolute location of a cell as well as its location relative to the center of a
 ///neighborhood.
-pub struct NeighborhoodMember<T> {
+pub struct NeighborhoodMember {
 	pub rel_x: isize,
 	pub rel_y: isize,
 	pub abs_x: usize,
 	pub abs_y: usize,
-	pub item: T,
-} impl<T> NeighborhoodMember<T> {
-	fn unit(self) -> NeighborhoodMember<()> {
-		let NeighborhoodMember { rel_x, rel_y, abs_x, abs_y, item: _ } = self;
-		NeighborhoodMember {
-			rel_x,
-			rel_y,
-			abs_x,
-			abs_y,
-			item: (),
-		}
-	}
 }
 
 ///Stores members of a neighborhood. Does not store info about what type of neighborhood it is.
-pub struct Neighborhood<T> {
-	members: Vec<NeighborhoodMember<T>>
-} impl<T> Neighborhood<T> {
-	pub fn get(&self, offset_x: isize, offset_y: isize) -> Option<&T> {
-		Some(&self.members.iter().find(|m| m.rel_x == offset_x && m.rel_y == offset_y)?.item)
-	}
-	pub fn get_mut(&mut self, offset_x: isize, offset_y: isize) -> Option<&mut T> {
-		let position = self.members.iter().position(|m| m.rel_x == offset_x && m.rel_y == offset_y)?;
-		Some(&mut self.members[position].item)
-	}
-	///Removes items from members so the original grid is no longer borrowed.
-	pub fn of_units(self) -> Neighborhood<()> {
-		Neighborhood {
-			members: self.members.into_iter().map(NeighborhoodMember::unit).collect()
-		}
-	}
-} impl<T> IntoIterator for Neighborhood<T> {
-	type Item = NeighborhoodMember<T>;
-	type IntoIter = std::vec::IntoIter<Self::Item>;
-	fn into_iter(self) -> Self::IntoIter {
-	    self.members.into_iter()
-	}
-}
+pub type Neighborhood = Vec<NeighborhoodMember>;
 
 ///Grid structure for storing a list of items whose size is known at compile time.
 pub struct ConstSizeGrid<const W: usize, const H: usize, T> {
