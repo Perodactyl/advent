@@ -7,6 +7,8 @@ enum Operation {
 	Add,
 	#[strum(to_string = "*")]
 	Multiply,
+	#[strum(to_string = "||")]
+	Concatenate,
 }
 
 pub fn main(input: String) -> Result<String> {
@@ -29,6 +31,9 @@ pub fn main(input: String) -> Result<String> {
 				match operation {
 					Operation::Add => sum += num,
 					Operation::Multiply => sum *= num,
+					Operation::Concatenate => {
+						sum = format!("{sum}{num}").parse().unwrap();
+					},
 				}
 				print!(" {operation} ");
 				print!("{num}");
