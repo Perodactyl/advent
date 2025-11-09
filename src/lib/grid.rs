@@ -1,33 +1,49 @@
+//! Structures for storing and retrieving data in 2D grids
+
 use std::fmt::Display;
 
+///A neighborhood of 8 adjacent members, excluding the middle cell
 pub const MOORE_NEIGHBORHOOD: &'static [(isize, isize); 8] = &[
 	(-1, -1), ( 0, -1), ( 1, -1),
 	(-1,  0), /*Self,*/ ( 1,  0),
 	(-1,  1), ( 0,  1), ( 1,  1),
 ];
 
+///A neighborhood of 4 adjacent members, excluding the middle cell and diagonals
 pub const VON_NEUMANN_NEIGHBORHOOD: &'static [(isize, isize); 4] = &[
 	/*None,*/ ( 0, -1), /*None,*/
 	(-1,  0), /*Self,*/ ( 1,  0),
 	/*None,*/ ( 0,  1), /*None,*/
 ];
 
+///Stores elements in a 2D grid.
 pub trait Grid<T> {
+	///Gets an element at a specific position, or None if it is out of bounds.
 	fn get_checked(&self, x: usize, y: usize) -> Option<&T>;
+	///Gets an element at a specific position, or None if it is out of bounds.
 	fn get_mut_checked(&mut self, x: usize, y: usize) -> Option<&mut T>;
+	///Sets an element at a specific position. Returns None if it is out of bounds, or the element
+	///that was previously there.
 	fn set_checked(&mut self, x: usize, y: usize, value: T) -> Option<T>;
+	///Gets an element at a specific position. Panics if it is out of bounds.
 	fn get(&self, x: usize, y: usize) -> &T {
 		self.get_checked(x, y).unwrap()
 	}
+	///Gets an element at a specific position. Panics if it is out of bounds.
 	fn get_mut(&mut self, x: usize, y: usize) -> &mut T {
 		self.get_mut_checked(x, y).unwrap()
 	}
+	///Sets an element at a specific position. Panics if it is out of boundss.
 	fn set(&mut self, x: usize, y: usize, value: T) -> T {
 		self.set_checked(x, y, value).unwrap()
 	}
+	///Gets the current width of grid.
 	fn width(&self) -> usize;
+	///Gets the current height of grid.
 	fn height(&self) -> usize;
 
+	///Returns the first element and its coordinates on which `predicate` returns true, or None if none was
+	///found. This function is short-circuiting.
 	fn find(&self, predicate: fn(element: &T, x: usize, y: usize) -> bool) -> Option<(&T, usize, usize)> {
 		for x in 0..self.width() {
 			for y in 0..self.height() {
@@ -40,13 +56,14 @@ pub trait Grid<T> {
 
 		None
 	}
+	///Returns a Neighborhood around a certain cell.
 	fn get_neighborhood(&self, x: usize, y: usize, structure: &[(isize, isize)]) -> Neighborhood<&T> {
 		let mut results = Vec::with_capacity(8);
 		for (ox, oy) in structure.iter().copied() {
 			let Some(neighbor_x) = x.checked_add_signed(ox) else { continue };
 			let Some(neighbor_y) = y.checked_add_signed(oy) else { continue };
 			let Some(cell) = self.get_checked(neighbor_x, neighbor_y) else { continue };
-			results.push(NeighboorhoodMember {
+			results.push(NeighborhoodMember {
 				rel_x: ox,
 				rel_y: oy,
 				abs_x: neighbor_x,
@@ -61,16 +78,18 @@ pub trait Grid<T> {
 	}
 }
 
-pub struct NeighboorhoodMember<T> {
+///Stores the absolute location of a cell as well as its location relative to the center of a
+///neighborhood.
+pub struct NeighborhoodMember<T> {
 	pub rel_x: isize,
 	pub rel_y: isize,
 	pub abs_x: usize,
 	pub abs_y: usize,
 	pub item: T,
-} impl<T> NeighboorhoodMember<T> {
-	fn unit(self) -> NeighboorhoodMember<()> {
-		let NeighboorhoodMember { rel_x, rel_y, abs_x, abs_y, item: _ } = self;
-		NeighboorhoodMember {
+} impl<T> NeighborhoodMember<T> {
+	fn unit(self) -> NeighborhoodMember<()> {
+		let NeighborhoodMember { rel_x, rel_y, abs_x, abs_y, item: _ } = self;
+		NeighborhoodMember {
 			rel_x,
 			rel_y,
 			abs_x,
@@ -80,8 +99,9 @@ pub struct NeighboorhoodMember<T> {
 	}
 }
 
+///Stores members of a neighborhood. Does not store info about what type of neighborhood it is.
 pub struct Neighborhood<T> {
-	members: Vec<NeighboorhoodMember<T>>
+	members: Vec<NeighborhoodMember<T>>
 } impl<T> Neighborhood<T> {
 	pub fn get(&self, offset_x: isize, offset_y: isize) -> Option<&T> {
 		Some(&self.members.iter().find(|m| m.rel_x == offset_x && m.rel_y == offset_y)?.item)
@@ -90,28 +110,37 @@ pub struct Neighborhood<T> {
 		let position = self.members.iter().position(|m| m.rel_x == offset_x && m.rel_y == offset_y)?;
 		Some(&mut self.members[position].item)
 	}
-	///Removes items from members so the original is no longer borrowed
+	///Removes items from members so the original grid is no longer borrowed.
 	pub fn of_units(self) -> Neighborhood<()> {
 		Neighborhood {
-			members: self.members.into_iter().map(NeighboorhoodMember::unit).collect()
+			members: self.members.into_iter().map(NeighborhoodMember::unit).collect()
 		}
 	}
 } impl<T> IntoIterator for Neighborhood<T> {
-	type Item = NeighboorhoodMember<T>;
+	type Item = NeighborhoodMember<T>;
 	type IntoIter = std::vec::IntoIter<Self::Item>;
 	fn into_iter(self) -> Self::IntoIter {
 	    self.members.into_iter()
 	}
 }
 
+///Grid structure for storing a list of items whose size is known at compile time.
 pub struct ConstSizeGrid<const W: usize, const H: usize, T> {
 	items: [[T; W]; H],
 } impl<const W: usize, const H: usize, T> ConstSizeGrid<W, H, T> {
-	pub fn new_with(items: [[T; W]; H]) -> ConstSizeGrid<W, H, T> {
+	///Creates a grid with the specified list of columns
+	pub fn new_with_cols(items: [[T; W]; H]) -> ConstSizeGrid<W, H, T> {
 		ConstSizeGrid {
 			items
 		}
 	}
+	///Creates a grid with the specified list of rows
+	pub fn new_with_rows(items: [[T; H]; W]) -> ConstSizeGrid<W, H, T> {
+		let _ = items;
+		unimplemented!()
+	}
+
+	///Creates a grid using a function to generate each element.
 	pub fn populated_with(populator: fn(x: usize, y: usize) -> T) -> ConstSizeGrid<W, H, T> {
 		let mut items: Vec<[T; W]> = Vec::with_capacity(W);
 		for x in 0..W {
@@ -121,17 +150,19 @@ pub struct ConstSizeGrid<const W: usize, const H: usize, T> {
 			}
 			items.push(unsafe { column.try_into().unwrap_unchecked() });
 		}
-		ConstSizeGrid::new_with(unsafe { items.try_into().unwrap_unchecked() })
+		ConstSizeGrid::new_with_cols(unsafe { items.try_into().unwrap_unchecked() })
 	}
 }
 
 impl<const W: usize, const H: usize, T: Clone + Copy> ConstSizeGrid<W, H, T> {
+	///Creates a grid using a copied value.
 	pub fn filled_with(default: T) -> ConstSizeGrid<W, H, T> {
-		ConstSizeGrid::new_with([[default; W]; H])
+		ConstSizeGrid::new_with_cols([[default; W]; H])
 	}
 }
 
 impl<const W: usize, const H: usize, T: Clone + Copy + Default> Default for ConstSizeGrid<W, H, T> {
+	///Creates a grid using a copied default value.
 	fn default() -> ConstSizeGrid<W, H, T> {
 		ConstSizeGrid::filled_with(T::default())
 	}
@@ -156,6 +187,7 @@ impl<const W: usize, const H: usize, T> Grid<T> for ConstSizeGrid<W, H, T> {
 	}
 }
 
+///Grid structure for storing a list of items whose size is unknown at compile time.
 pub struct ItemGrid<T> {
 	items: Vec<Vec<T>>,
 	width: usize,
@@ -163,9 +195,12 @@ pub struct ItemGrid<T> {
 }
 
 impl<T> ItemGrid<T> {
+	///Creates an empty ItemGrid
 	pub fn new() -> ItemGrid<T> {
 		ItemGrid { items: vec![], width: 0, height: 0 }
 	}
+	///Adds a column to the grid. If the grid is empty, the height is set by the column. Otherwise,
+	///panics if the colum length does not match.
 	pub fn add_col(&mut self, col: Vec<T>) {
 		if self.width == 0 {
 			self.height = col.len();
@@ -176,6 +211,9 @@ impl<T> ItemGrid<T> {
 		self.width += 1;
 		self.items.push(col);
 	}
+
+	///Adds a row to the grid. If the grid is empty, the width is set by the row. Otherwise, panics
+	///if the row length does not match.
 	pub fn add_row(&mut self, row: Vec<T>) {
 		if self.height == 0 {
 			self.width = row.len();
@@ -191,6 +229,8 @@ impl<T> ItemGrid<T> {
 			col.push(val);
 		}
 	}
+
+	///Shrinks the capacity of each column and the capacity for more columns as much as possible.
 	pub fn shrink_to_fit(&mut self) {
 		for col in &mut self.items {
 			col.shrink_to_fit();
