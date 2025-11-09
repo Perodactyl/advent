@@ -9,6 +9,7 @@ dependencies = [
  "anyhow",
  "clap",
  "dotenv",
+ "progress_bar",
  "reqwest",
  "strum",
  "thiserror",
@@ -797,6 +798,12 @@ checksum = "5ee95bc4ef87b8d5ba32e8b7714ccc834865276eab0aed5c9958d00ec45f49e8"
 dependencies = [
  "unicode-ident",
 ]
+
+[[package]]
+name = "progress_bar"
+version = "1.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e78e216a48ed863994dcc1357367f097d5a1875fc5bcf233875f32c1d442c734"
 
 [[package]]
 name = "quote"

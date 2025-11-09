@@ -13,6 +13,9 @@ enum Operation {
 
 pub fn main(input: String) -> Result<String> {
 	let mut answer = 0;
+	let lines = input.lines().count();
+	init_progress_bar_with_eta(lines);
+
 	for line in input.lines() {
 		let Some((target, rhs)) = line.split_once(':') else { panic!("{line} is malformed") };
 		let target: u64 = target.parse().unwrap();
@@ -23,7 +26,6 @@ pub fn main(input: String) -> Result<String> {
 		'test_states: loop {
 			//Test the validity of this state
 			let mut sum = parts[0];
-			print!("(against {target}) {}", parts[0]);
 			for i in 0..state.len() {
 				let operation = Operation::VARIANTS[state[i]];
 				let num = parts[i+1];
@@ -35,11 +37,24 @@ pub fn main(input: String) -> Result<String> {
 						sum = format!("{sum}{num}").parse().unwrap();
 					},
 				}
-				print!(" {operation} ");
-				print!("{num}");
 			}
-			println!(" = {sum}");
-			if sum == target { solvable = true; break };
+			if sum == target {
+				solvable = true;
+				print_progress_bar_info(
+					"Found",
+					&format!("{target}: {}{}", parts[0], parts
+						.iter()
+						.skip(1)
+						.enumerate()
+						.map(|(i,p)| format!(" {} {p}", Operation::VARIANTS[state[i]]))
+						.collect::<Vec<_>>()
+						.join(" ")),
+					Color::Green,
+					Style::Bold
+				);
+				inc_progress_bar();
+				break
+			};
 
 			//Increment the state
 			state[0] += 1;
@@ -47,12 +62,22 @@ pub fn main(input: String) -> Result<String> {
 				if state[i] >= Operation::VARIANTS.len() {
 					state[i] = 0;
 					if i != state.len()-1 { state[i+1] += 1 }
-					else { break 'test_states } // Rollover
+					else {
+						print_progress_bar_info(
+							"Failed",
+							&format!("{target}: {}", parts.iter().map(|p| p.to_string()).collect::<Vec<_>>().join(" ")),
+							Color::Red,
+							Style::Bold
+						);
+						inc_progress_bar();
+						break 'test_states
+					}
 				}
 			}
 		}
 		if solvable { answer += target };
 	}
+	finalize_progress_bar();
 
 	Ok(format!("{answer}"))
 }

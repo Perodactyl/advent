@@ -6,4 +6,5 @@ pub mod prelude {
 
 	pub use anyhow::Result;
 	pub use strum::*;
+	pub use progress_bar::*;
 }
