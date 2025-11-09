@@ -2,7 +2,8 @@
 
 use clap::{Parser, ValueEnum};
 
-mod lib;
+//Making this pub silences dead_code warnings on pub members.
+pub mod lib;
 mod years;
 
 #[derive(ValueEnum, Default, Debug, Clone, Copy)]

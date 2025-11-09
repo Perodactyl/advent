@@ -1,9 +1,30 @@
 use std::fmt::Display;
 
+pub const MOORE_NEIGHBORHOOD: &'static [(isize, isize); 8] = &[
+	(-1, -1), ( 0, -1), ( 1, -1),
+	(-1,  0), /*Self,*/ ( 1,  0),
+	(-1,  1), ( 0,  1), ( 1,  1),
+];
+
+pub const VON_NEUMANN_NEIGHBORHOOD: &'static [(isize, isize); 4] = &[
+	/*None,*/ ( 0, -1), /*None,*/
+	(-1,  0), /*Self,*/ ( 1,  0),
+	/*None,*/ ( 0,  1), /*None,*/
+];
+
 pub trait Grid<T> {
-	fn get(&self, x: usize, y: usize) -> &T;
-	fn get_mut(&mut self, x: usize, y: usize) -> &mut T;
-	fn set(&mut self, x: usize, y: usize, value: T);
+	fn get_checked(&self, x: usize, y: usize) -> Option<&T>;
+	fn get_mut_checked(&mut self, x: usize, y: usize) -> Option<&mut T>;
+	fn set_checked(&mut self, x: usize, y: usize, value: T) -> Option<T>;
+	fn get(&self, x: usize, y: usize) -> &T {
+		self.get_checked(x, y).unwrap()
+	}
+	fn get_mut(&mut self, x: usize, y: usize) -> &mut T {
+		self.get_mut_checked(x, y).unwrap()
+	}
+	fn set(&mut self, x: usize, y: usize, value: T) -> T {
+		self.set_checked(x, y, value).unwrap()
+	}
 	fn width(&self) -> usize;
 	fn height(&self) -> usize;
 
@@ -18,6 +39,68 @@ pub trait Grid<T> {
 		}
 
 		None
+	}
+	fn get_neighborhood(&self, x: usize, y: usize, structure: &[(isize, isize)]) -> Neighborhood<&T> {
+		let mut results = Vec::with_capacity(8);
+		for (ox, oy) in structure.iter().copied() {
+			let Some(neighbor_x) = x.checked_add_signed(ox) else { continue };
+			let Some(neighbor_y) = y.checked_add_signed(oy) else { continue };
+			let Some(cell) = self.get_checked(neighbor_x, neighbor_y) else { continue };
+			results.push(NeighboorhoodMember {
+				rel_x: ox,
+				rel_y: oy,
+				abs_x: neighbor_x,
+				abs_y: neighbor_y,
+				item: cell
+			});
+		}
+
+		results.shrink_to_fit();
+
+		Neighborhood { members: results }
+	}
+}
+
+pub struct NeighboorhoodMember<T> {
+	pub rel_x: isize,
+	pub rel_y: isize,
+	pub abs_x: usize,
+	pub abs_y: usize,
+	pub item: T,
+} impl<T> NeighboorhoodMember<T> {
+	fn unit(self) -> NeighboorhoodMember<()> {
+		let NeighboorhoodMember { rel_x, rel_y, abs_x, abs_y, item: _ } = self;
+		NeighboorhoodMember {
+			rel_x,
+			rel_y,
+			abs_x,
+			abs_y,
+			item: (),
+		}
+	}
+}
+
+pub struct Neighborhood<T> {
+	members: Vec<NeighboorhoodMember<T>>
+} impl<T> Neighborhood<T> {
+	pub fn get(&self, offset_x: isize, offset_y: isize) -> Option<&T> {
+		Some(&self.members.iter().find(|m| m.rel_x == offset_x && m.rel_y == offset_y)?.item)
+	}
+	pub fn get_mut(&mut self, offset_x: isize, offset_y: isize) -> Option<&mut T> {
+		let position = self.members.iter().position(|m| m.rel_x == offset_x && m.rel_y == offset_y)?;
+		Some(&mut self.members[position].item)
+	}
+	///Removes items from members so the original is no longer borrowed
+	pub fn of_units(self) -> Neighborhood<()> {
+		Neighborhood {
+			members: self.members.into_iter().map(NeighboorhoodMember::unit).collect()
+		}
+	}
+} impl<T> IntoIterator for Neighborhood<T> {
+	type Item = NeighboorhoodMember<T>;
+	type IntoIter = std::vec::IntoIter<Self::Item>;
+	fn into_iter(self) -> Self::IntoIter {
+	    self.members.into_iter()
 	}
 }
 
@@ -55,14 +138,15 @@ impl<const W: usize, const H: usize, T: Clone + Copy + Default> Default for Cons
 }
 
 impl<const W: usize, const H: usize, T> Grid<T> for ConstSizeGrid<W, H, T> {
-	fn get(&self, x: usize, y: usize) -> &T {
-	    &self.items[x][y]
+	fn get_checked(&self, x: usize, y: usize) -> Option<&T> {
+	    self.items.get(x)?.get(y)
 	}
-	fn get_mut(&mut self, x: usize, y: usize) -> &mut T {
-	    &mut self.items[x][y]
+	fn get_mut_checked(&mut self, x: usize, y: usize) -> Option<&mut T> {
+		self.items.get_mut(x)?.get_mut(y)
 	}
-	fn set(&mut self, x: usize, y: usize, value: T) {
-	    self.items[x][y] = value;
+	fn set_checked(&mut self, x: usize, y: usize, value: T) -> Option<T> {
+		if x >= self.width() || y >= self.height() { return None };
+	    Some(std::mem::replace(&mut self.items[x][y], value))
 	}
 	fn width(&self) -> usize {
 	    W
@@ -107,17 +191,24 @@ impl<T> ItemGrid<T> {
 			col.push(val);
 		}
 	}
+	pub fn shrink_to_fit(&mut self) {
+		for col in &mut self.items {
+			col.shrink_to_fit();
+		}
+		self.items.shrink_to_fit();
+	}
 }
 
 impl<T> Grid<T> for ItemGrid<T> {
-	fn get(&self, x: usize, y: usize) -> &T {
-	    &self.items[x][y]
+	fn get_checked(&self, x: usize, y: usize) -> Option<&T> {
+	    self.items.get(x)?.get(y)
 	}
-	fn get_mut(&mut self, x: usize, y: usize) -> &mut T {
-	    &mut self.items[x][y]
+	fn get_mut_checked(&mut self, x: usize, y: usize) -> Option<&mut T> {
+		self.items.get_mut(x)?.get_mut(y)
 	}
-	fn set(&mut self, x: usize, y: usize, value: T) {
-	    self.items[x][y] = value;
+	fn set_checked(&mut self, x: usize, y: usize, value: T) -> Option<T> {
+		if x >= self.width() || y >= self.height() { return None };
+	    Some(std::mem::replace(&mut self.items[x][y], value))
 	}
 	fn width(&self) -> usize {
 	    self.width
@@ -136,5 +227,17 @@ impl<T: Display> Display for ItemGrid<T> {
 			writeln!(f)?;
 		}
 		Ok(())
+	}
+}
+
+impl<T: From<char>> From<&str> for ItemGrid<T> {
+	fn from(value: &str) -> Self {
+	    let mut output = ItemGrid::new();
+		for line in value.lines() {
+			output.add_row(line.chars().map(Into::into).collect());
+		}
+
+		output.shrink_to_fit();
+		output
 	}
 }
