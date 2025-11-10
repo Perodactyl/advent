@@ -27,7 +27,10 @@ pub trait Grid<T> {
 	fn set_checked(&mut self, x: usize, y: usize, value: T) -> Option<T>;
 	///Gets an element at a specific position. Panics if it is out of bounds.
 	fn get(&self, x: usize, y: usize) -> &T {
-		self.get_checked(x, y).unwrap()
+		match self.get_checked(x, y) {
+			Some(r) => r,
+			None => panic!("Attempt to get cell ({x},{y}) which is out of bounds in {}x{}", self.width(), self.height()),
+		}
 	}
 	///Gets an element at a specific position. Panics if it is out of bounds.
 	fn get_mut(&mut self, x: usize, y: usize) -> &mut T {
@@ -101,25 +104,25 @@ pub type Neighborhood = Vec<NeighborhoodMember>;
 
 ///Grid structure for storing a list of items whose size is known at compile time.
 pub struct ConstSizeGrid<const W: usize, const H: usize, T> {
-	items: [[T; W]; H],
+	items: [[T; H]; W],
 } impl<const W: usize, const H: usize, T> ConstSizeGrid<W, H, T> {
 	///Creates a grid with the specified list of columns
-	pub fn new_with_cols(items: [[T; W]; H]) -> ConstSizeGrid<W, H, T> {
+	pub fn new_with_cols(items: [[T; H]; W]) -> ConstSizeGrid<W, H, T> {
 		ConstSizeGrid {
 			items
 		}
 	}
 	///Creates a grid with the specified list of rows
-	pub fn new_with_rows(items: [[T; H]; W]) -> ConstSizeGrid<W, H, T> {
+	pub fn new_with_rows(items: [[T; W]; H]) -> ConstSizeGrid<W, H, T> {
 		let _ = items;
 		unimplemented!()
 	}
 
 	///Creates a grid using a function to generate each element.
 	pub fn populated_with(populator: fn(x: usize, y: usize) -> T) -> ConstSizeGrid<W, H, T> {
-		let mut items: Vec<[T; W]> = Vec::with_capacity(W);
+		let mut items: Vec<[T; H]> = Vec::with_capacity(H);
 		for x in 0..W {
-			let mut column = Vec::with_capacity(H);
+			let mut column = Vec::with_capacity(W);
 			for y in 0..H {
 				column.push(populator(x, y));
 			}
@@ -132,7 +135,7 @@ pub struct ConstSizeGrid<const W: usize, const H: usize, T> {
 impl<const W: usize, const H: usize, T: Clone + Copy> ConstSizeGrid<W, H, T> {
 	///Creates a grid using a copied value.
 	pub fn filled_with(default: T) -> ConstSizeGrid<W, H, T> {
-		ConstSizeGrid::new_with_cols([[default; W]; H])
+		ConstSizeGrid::new_with_cols([[default; H]; W])
 	}
 }
 
@@ -256,3 +259,32 @@ impl<T: From<char>> From<&str> for ItemGrid<T> {
 		output
 	}
 }
+//
+// #[derive(Debug, Clone, Default)]
+// struct SparseGrid<T> {
+// 	items: Vec<(usize, usize, T)>,
+// 	width: usize,
+// 	height: usize,
+// }
+//
+// impl<T: TryFrom<char>> From<&str> for SparseGrid<T> {
+// 	fn from(value: &str) -> Self {
+// 	    let mut output = SparseGrid::default();
+// 		for line in value.lines() {
+// 			output.height += 1;
+// 			let mut width = 0;
+// 			for ch in line.chars() {
+// 				width += 1;
+// 				
+// 			}
+//
+// 			if output.width == 0 {
+// 				output.width = width;
+// 			} else {
+// 				assert_eq!(output.width, width);
+// 			}
+// 		}
+//
+// 		output
+// 	}
+// }
