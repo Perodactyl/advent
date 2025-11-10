@@ -15,27 +15,31 @@ struct Cell {
 	}
 } impl Display for Cell {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-	    write!(f, "{}", if self.visited { self.ch.to_ascii_lowercase() } else { self.ch })
+	    match self.visited {
+			true => write!(f, "\x1b[32;7m{}\x1b[39;27m", self.ch.to_ascii_lowercase()),
+			false => write!(f, "{}", self.ch),
+		}
 	}
 }
 
 fn compute_area_and_perim((ch, x, y): (char, usize, usize), grid: &mut impl Grid<Cell>) -> (u32, u32) {
 	let mut area = 1;
-	let mut perim = 4;
+	let mut perim = 0;
 	grid.get_mut(x, y).visited = true;
 
 	for
-		NeighborhoodMember { abs_x, abs_y, .. }
-		in grid.get_neighborhood(x, y, VON_NEUMANN_NEIGHBORHOOD)
+		NeighborhoodMember { abs_x, abs_y, abs_unbounded_x, abs_unbounded_y, .. }
+		in grid.get_neighborhood(x, y, VON_NEUMANN_NEIGHBORHOOD, false)
 	{
-		let item = grid.get(abs_x, abs_y);
-		if item.ch == ch {
-			perim -= 1;
+		if abs_unbounded_x >= 0 && abs_unbounded_y >= 0 && let Some(item) = grid.get_checked(abs_x, abs_y) && item.ch == ch {
+			// perim -= 1;
 			if item.visited { continue };
 
 			let (recurse_area, recurse_perim) = compute_area_and_perim((ch, abs_x, abs_y), grid);
 			area += recurse_area;
 			perim += recurse_perim;
+		} else {
+			perim += 1;
 		}
 	}
 	(area, perim)

@@ -57,17 +57,23 @@ pub trait Grid<T> {
 		None
 	}
 	///Returns a Neighborhood around a certain cell.
-	fn get_neighborhood(&self, x: usize, y: usize, structure: &[(isize, isize)]) -> Neighborhood {
+	fn get_neighborhood(&self, x: usize, y: usize, structure: &[(isize, isize)], skip_oob: bool) -> Neighborhood {
 		let mut results = Vec::with_capacity(8);
 		for (ox, oy) in structure.iter().copied() {
-			let Some(neighbor_x) = x.checked_add_signed(ox) else { continue };
-			let Some(neighbor_y) = y.checked_add_signed(oy) else { continue };
-			let Some(_) = self.get_checked(neighbor_x, neighbor_y) else { continue };
+			let abs_unbounded_x = x as isize + ox;
+			let abs_unbounded_y = y as isize + oy;
+			let neighbor_x = abs_unbounded_x.try_into().unwrap_or(0);
+			let neighbor_y = abs_unbounded_y.try_into().unwrap_or(0);
+			if skip_oob && (abs_unbounded_x < 0 || abs_unbounded_y < 0 || self.get_checked(neighbor_x, neighbor_y).is_none()) {
+				continue;
+			}
 			results.push(NeighborhoodMember {
 				rel_x: ox,
 				rel_y: oy,
 				abs_x: neighbor_x,
 				abs_y: neighbor_y,
+				abs_unbounded_x,
+				abs_unbounded_y
 			});
 		}
 
@@ -79,11 +85,15 @@ pub trait Grid<T> {
 
 ///Stores the absolute location of a cell as well as its location relative to the center of a
 ///neighborhood.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct NeighborhoodMember {
 	pub rel_x: isize,
 	pub rel_y: isize,
 	pub abs_x: usize,
 	pub abs_y: usize,
+	//If abs_x or abs_y is 0, you might as well check this to see if it's out of bounds.
+	pub abs_unbounded_x: isize,
+	pub abs_unbounded_y: isize,
 }
 
 ///Stores members of a neighborhood. Does not store info about what type of neighborhood it is.
