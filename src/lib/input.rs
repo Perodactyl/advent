@@ -41,7 +41,7 @@ pub fn sample(year: usize, day: usize) -> Result<String, std::io::Error> {
 	assert!(year >= 2015);
 	assert!(day >= 1 && day <= 25);
 	setup_input_dir(year)?;
-	let path = format!("input/{year}/day{day}.sample");
+	let path = format!("input/{year}/day{day}.sample{}", if cfg!(feature = "sample2") { "2" } else { "" });
 	if !fs::exists(&path)? {
 		return Err(std::io::Error::new(std::io::ErrorKind::NotFound, format!("{path} not found. Please paste sample data in.")));
 	}

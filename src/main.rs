@@ -89,7 +89,7 @@ fn main() -> anyhow::Result<()> {
 		unimplemented!("Use --no-default-features and --feature 'yearYYYY dayDD [sample] [part2]'")
 	}
 
-	let input = if cfg!(feature = "sample") {
+	let input = if cfg!(any(feature = "sample", feature = "sample2")) {
 		lib::input::sample(YEAR, DAY).unwrap()
 	} else {
 		lib::input::input(YEAR, DAY).unwrap()

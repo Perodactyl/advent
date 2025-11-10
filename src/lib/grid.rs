@@ -1,6 +1,6 @@
 //! Structures for storing and retrieving data in 2D grids
 
-use std::fmt::Display;
+use std::{fmt::Display, marker::PhantomData};
 
 ///A neighborhood of 8 adjacent members, excluding the middle cell
 pub const MOORE_NEIGHBORHOOD: &'static [(isize, isize); 8] = &[
@@ -59,6 +59,19 @@ pub trait Grid<T> {
 
 		None
 	}
+	///Returns the first element mutably and its coordinates on which `predicate` returns true, or None if none was
+	///found. This function is short-circuiting.
+	fn find_mut(&mut self, predicate: fn(element: &T, x: usize, y: usize) -> bool) -> Option<(&mut T, usize, usize)> {
+		for x in 0..self.width() {
+			for y in 0..self.height() {
+				if predicate(self.get(x, y), x, y) {
+					return Some((self.get_mut(x, y), x, y));
+				}
+			}
+		}
+
+		None
+	}
 	///Returns a Neighborhood around a certain cell.
 	fn get_neighborhood(&self, x: usize, y: usize, structure: &[(isize, isize)], skip_oob: bool) -> Neighborhood {
 		let mut results = Vec::with_capacity(8);
@@ -83,6 +96,37 @@ pub trait Grid<T> {
 		results.shrink_to_fit();
 
 		results
+	}
+
+	fn iter<'a>(&'a self) -> GridIter<'a, T, Self> where Self: Sized {
+		GridIter {
+			x: 0,
+			y: 0,
+			width: self.width(),
+			height: self.height(),
+			grid: self,
+			phantom: PhantomData
+		}
+	}
+}
+
+pub struct GridIter<'a, T: 'a, G: Grid<T>> {
+	x: usize,
+	y: usize,
+	width: usize,
+	height: usize,
+	grid: &'a G,
+	phantom: PhantomData<T>,
+} impl<'a, T: 'a, G: Grid<T>> Iterator for GridIter<'a, T, G> {
+	type Item = (usize, usize, &'a T);
+	fn next(&mut self) -> Option<Self::Item> {
+		self.x += 1;
+		if self.x >= self.width {
+			self.x = 0;
+			self.y += 1;
+		}
+		if self.y >= self.height { return None };
+		Some((self.x, self.y, self.grid.get(self.x, self.y)))
 	}
 }
 
