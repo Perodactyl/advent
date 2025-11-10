@@ -1,3 +1,5 @@
+use std::{num::NonZero, sync::{atomic::AtomicBool, mpsc::TryRecvError, Arc}};
+
 use crate::lib::prelude::*;
 
 #[derive(Default, Debug, Clone)]
@@ -7,9 +9,9 @@ struct CPU {
 	c: i64,
 	pc: usize,
 	program: Vec<u8>,
-	output: Vec<i64>,
+	output: Vec<u8>,
 } impl CPU {
-	fn tick(&mut self) {
+	fn tick(&mut self, show: bool) {
 		let opcode = self.program[self.pc];
 		let literal_operand = self.program[self.pc+1];
 		let combo_operand = match literal_operand {
@@ -54,7 +56,7 @@ struct CPU {
 			/* out */ 5 => { //Append N mod 8 to output
 				opcode_str = "out";
 				source_is_combo = true;
-				self.output.push(combo_operand & 0b111);
+				self.output.push(combo_operand as u8 & 0b111);
 			},
 			/* bdv */ 6 => { //adv but stored in B
 				opcode_str = "bdv";
@@ -69,8 +71,8 @@ struct CPU {
 			c => unimplemented!("opcode {c:?}")
 		}
 
-		println!(
-			"pc={:<2} a={old_a:<3} b={old_b:<3} c={old_c:<3} {opcode_str} {}",
+		if show { println!(
+			"pc={:<2} a={old_a:<6} b={old_b:<6} c={old_c:<6} {opcode_str} {}",
 			self.pc, if source_is_combo {
 				match literal_operand {
 					4 => String::from("A"),
@@ -79,7 +81,7 @@ struct CPU {
 					n => n.to_string()
 				}
 			} else { format!("#{literal_operand}") }
-		);
+		) };
 
 		self.pc = next_pc;
 	}
@@ -101,10 +103,53 @@ pub fn main(input: String) -> Result<String> {
 			cpu.program = line["Program: ".len()..].split(",").map(|v| v.parse().unwrap()).collect();
 		}
 	}
-	println!("{cpu:?}");
-	while cpu.pc < cpu.program.len() {
-		cpu.tick();
+	if cfg!(not(feature = "part2")) {
+		while cpu.pc < cpu.program.len() {
+			cpu.tick(true);
+		}
+		Ok(cpu.output.iter().map(u8::to_string).collect::<Vec<_>>().join(","))
+	} else {
+		let mut threads = vec![];
+		let mut is_going = Arc::new(AtomicBool::new(true));
+
+		for n in 0..std::thread::available_parallelism().map(NonZero::get).unwrap_or(16) {
+			let thread_cpu = cpu.clone();
+			let (tx, rx) = std::sync::mpsc::channel::<i64>();
+			threads.push(rx);
+			let thread_is_going = Arc::clone(&is_going);
+
+			std::thread::spawn(move || {
+				let mut a = 0;
+				loop {
+					let mut instance = thread_cpu.clone();
+					instance.a = a;
+					while instance.pc < instance.program.len() {
+						instance.tick(false);
+					}
+					if instance.output == instance.program {
+						let Ok(_) = tx.send(a) else { break };
+					} else {
+						if !thread_is_going.load(std::sync::atomic::Ordering::Relaxed) {
+							break;
+						}
+					}
+					a += n as i64;
+				}
+			});
+		}
+		loop {
+			for rx in &mut threads {
+				match rx.try_recv() {
+					Ok(value) => {
+						println!("DONE! a={value}");
+						is_going.store(true, std::sync::atomic::Ordering::Relaxed);
+					},
+					Err(TryRecvError::Empty) => {},
+					Err(TryRecvError::Disconnected) => {
+						println!("A thread has disconnected.");
+					}
+				}
+			}
+		}
 	}
-	println!("{cpu:?}");
-	Ok(cpu.output.iter().map(i64::to_string).collect::<Vec<_>>().join(","))
 }
