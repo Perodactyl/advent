@@ -1,14 +1,27 @@
+#[cfg(feature = "day6")]
 mod day6;
+#[cfg(all(feature = "day6", not(feature = "default")))]
+use day6 as day;
+#[cfg(feature = "day7")]
 mod day7;
+#[cfg(all(feature = "day7", not(feature = "default")))]
+use day7 as day;
+#[cfg(feature = "day11")]
 mod day11;
+#[cfg(all(feature = "day11", not(feature = "default")))]
+use day11 as day;
+#[cfg(feature = "day12")]
 mod day12;
+#[cfg(all(feature = "day12", not(feature = "default")))]
+use day12 as day;
 
-pub fn puzzle(day: usize, input: String) -> anyhow::Result<String> {
-	match day {
-		6  => day6::main(input),
-		7  => day7::main(input),
-		11 => day11::main(input),
-		12 => day12::main(input),
-		d => panic!("Day {d} is not existant")
+#[cfg(feature = "default")]
+mod day {
+	pub fn main(_: String) -> anyhow::Result<String> {
+		unimplemented!("Do not use default features!");
 	}
+}
+
+pub fn puzzle(input: String) -> anyhow::Result<String> {
+	day::main(input)
 }

@@ -38,7 +38,7 @@ pub fn main(input: String) -> Result<String> {
 	let mut total = 0;
 	let mut counter = StoneCounter::default();
 	for word in input.split_whitespace() {
-		total += counter.stone_count(word.parse().unwrap(), 75);
+		total += counter.stone_count(word.parse().unwrap(), if cfg!(feature = "part2") { 75 } else { 25 });
 	}
 	Ok(format!("{total}"))
 }

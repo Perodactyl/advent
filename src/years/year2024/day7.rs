@@ -7,6 +7,7 @@ enum Operation {
 	Add,
 	#[strum(to_string = "*")]
 	Multiply,
+	#[cfg(feature = "part2")]
 	#[strum(to_string = "||")]
 	Concatenate,
 }
@@ -33,6 +34,7 @@ pub fn main(input: String) -> Result<String> {
 				match operation {
 					Operation::Add => sum += num,
 					Operation::Multiply => sum *= num,
+					#[cfg(feature = "part2")]
 					Operation::Concatenate => {
 						sum = format!("{sum}{num}").parse().unwrap();
 					},
