@@ -7,9 +7,10 @@ pub mod prelude {
 	pub use super::grid::*;
 	pub use super::pathfind::*;
 
-	pub use std::fmt::Display;
+	pub use std::fmt::{ Display, Debug };
+	pub use std::collections::HashMap;
 
-	pub use anyhow::{Result, bail, anyhow};
+	pub use anyhow::{ Result, bail, anyhow };
 	pub use strum::*;
 	pub use progress_bar::*;
 }

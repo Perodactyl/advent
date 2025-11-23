@@ -30,6 +30,10 @@ use day17 as day;
 mod day22;
 #[cfg(all(feature = "day22", not(feature = "default")))]
 use day22 as day;
+#[cfg(feature = "day23")]
+mod day23;
+#[cfg(all(feature = "day23", not(feature = "default")))]
+use day23 as day;
 
 #[cfg(feature = "default")]
 mod day {
