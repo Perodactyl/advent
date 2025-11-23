@@ -45,6 +45,23 @@ pub trait Grid<T> {
 	///Gets the current height of grid.
 	fn height(&self) -> usize;
 
+	///Gets a list of every cell in a certain row.
+	fn row(&self, y: usize) -> Vec<&T> {
+		let mut output = Vec::with_capacity(self.width());
+		for x in 0..self.width() {
+			output.push(self.get(x, y));
+		}
+		output
+	}
+	///Gets a list of every cell in a certain column.
+	fn col(&self, x: usize) -> Vec<&T> {
+		let mut output = Vec::with_capacity(self.height());
+		for y in 0..self.height() {
+			output.push(self.get(x, y));
+		}
+		output
+	}
+
 	///Returns the first element and its coordinates on which `predicate` returns true, or None if none was
 	///found. This function is short-circuiting.
 	fn find(&self, predicate: fn(element: &T, x: usize, y: usize) -> bool) -> Option<(&T, usize, usize)> {

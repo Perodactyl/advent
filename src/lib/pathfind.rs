@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use std::{collections::VecDeque, rc::Rc};
 
 use crate::lib::grid::ItemGrid;
