@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use crate::lib::prelude::*;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum Direction {
 	Up,
 	Down,
@@ -49,16 +49,44 @@ impl Direction {
 	}
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Display, EnumIs)]
-enum Cell {
-	#[strum(to_string = "\x1b[2;30m.\x1b[22;39m")]
-	Clear,
-	#[strum(to_string = "\x1b[1m#\x1b[22m")]
+#[derive(Debug, Clone, EnumIs)]
+enum Cell { //HashSet might be excessive (could just use 4 bools)
+	Clear(HashSet<Direction>),
 	Obstacle,
-	#[strum(to_string = "\x1b[31m{0}\x1b[39m")]
-	GuardStart(Direction),
-	#[strum(to_string = "\x1b[34m{0}\x1b[39m")]
-	Traversed(Direction),
+	GuardStart(Direction, HashSet<Direction>),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum State {
+	Turned,
+	Moved,
+	OutOfBounds,
+	Looping,
+}
+
+fn simulate_step(guard_dir: &mut Direction, guard_pos: &mut (usize, usize), grid: &mut ItemGrid<Cell>) -> State {
+	match guard_dir.advance(*guard_pos) {
+		None => State::OutOfBounds,
+		Some((x, y)) if x >= grid.width() || y >= grid.height() => State::OutOfBounds,
+		Some(new_pos @ (x, y)) => match grid.get_mut(x, y) {
+			Cell::Obstacle => {
+				*guard_dir = guard_dir.right();
+				State::Turned
+			},
+			Cell::Clear(d) => {
+				if d.contains(guard_dir) { return State::Looping };
+				d.insert(*guard_dir);
+				*guard_pos = new_pos;
+				State::Moved
+			},
+			Cell::GuardStart(_, d) => {
+				if d.contains(guard_dir) { return State::Looping };
+				d.insert(*guard_dir);
+				*guard_pos = new_pos;
+				State::Moved
+			}
+		}
+	}
 }
 
 pub fn main(input: String) -> Result<String> {
@@ -67,45 +95,85 @@ pub fn main(input: String) -> Result<String> {
 		let mut row = vec![];
 		for ch in line.chars() {
 			match ch {
-				'.' => row.push(Cell::Clear),
+				'.' => row.push(Cell::Clear(HashSet::new())),
 				'#' => row.push(Cell::Obstacle),
-				'^' => row.push(Cell::GuardStart(Direction::Up)),
-				'v' => row.push(Cell::GuardStart(Direction::Down)),
-				'<' => row.push(Cell::GuardStart(Direction::Left)),
-				'>' => row.push(Cell::GuardStart(Direction::Right)),
+				'^' => row.push(Cell::GuardStart(Direction::Up, HashSet::new())),
+				'v' => row.push(Cell::GuardStart(Direction::Down, HashSet::new())),
+				'<' => row.push(Cell::GuardStart(Direction::Left, HashSet::new())),
+				'>' => row.push(Cell::GuardStart(Direction::Right, HashSet::new())),
 				c => panic!("Unexpected character {c} in input map")
 			}
 		}
 		grid.add_row(row);
 	}
 	
-	let Some((Cell::GuardStart(guard_dir), guard_x, guard_y)) = grid.find(|cell, _, _| {
-		matches!(cell, Cell::GuardStart(_))
+	let Some((Cell::GuardStart(guard_dir, _), guard_x, guard_y)) = grid.find(|cell, _, _| {
+		matches!(cell, Cell::GuardStart(_, _))
 	}) else { panic!("Guard not found") };
-	let mut guard_dir = guard_dir.clone();
-	let mut guard_pos = (guard_x, guard_y);
 
-	loop {
-		match guard_dir.advance(guard_pos) {
-			None => break,
-			Some((x, y)) if x >= grid.width() || y >= grid.height() => break,
-			Some(new_pos @ (x, y)) => match grid.get(x, y) {
-				Cell::GuardStart(s) if *s == guard_dir => break,
-				Cell::Obstacle => {
-					guard_dir = guard_dir.right();
-				},
-				Cell::Clear | Cell::Traversed(_) => {
-					grid.set(guard_pos.0, guard_pos.1, Cell::Traversed(guard_dir));
-					guard_pos = new_pos;
-				},
-				Cell::GuardStart(_) => {
-					guard_pos = new_pos;
+	let original_guard_dir = guard_dir.clone();
+	let original_guard_pos = (guard_x, guard_y);
+	let original_grid = grid;
+
+	if !cfg!(feature = "part2") {
+		let mut grid = original_grid;
+		let mut guard_dir = original_guard_dir;
+		let mut guard_pos = original_guard_pos;
+		loop {
+			match simulate_step(&mut guard_dir, &mut guard_pos, &mut grid) {
+				State::OutOfBounds => break,
+				_ => {}
+			}
+		}
+		let mut sum = 0;
+		for (_, _, cell) in grid.iter() {
+			match cell {
+				Cell::Clear(d) => if !d.is_empty() { sum += 1 },
+				Cell::GuardStart(_, d) => if !d.is_empty() { sum += 1 },
+				Cell::Obstacle => {}
+			}
+		}
+		Ok(format!("{sum}"))
+	} else {
+		let regular_path = {
+			let mut grid = original_grid.clone();
+			let mut guard_dir = original_guard_dir;
+			let mut guard_pos = original_guard_pos;
+			loop {
+				match simulate_step(&mut guard_dir, &mut guard_pos, &mut grid) {
+					State::OutOfBounds => break,
+					_ => {}
+				}
+			}
+
+			grid
+		};
+
+		let mut sum = 0;
+		'find_loops: for (_, x, y) in regular_path.find_each(|c,_,_| match c {
+			Cell::Clear(d) => !d.is_empty(),
+			Cell::GuardStart(_, d) => !d.is_empty(),
+			Cell::Obstacle => false
+		}) {
+			let mut grid = original_grid.clone();
+			let mut guard_dir = original_guard_dir;
+			let mut guard_pos = original_guard_pos;
+
+			grid.set(x, y, Cell::Obstacle);
+
+			loop {
+				match simulate_step(&mut guard_dir, &mut guard_pos, &mut grid) {
+					State::Looping => {
+						sum += 1;
+						println!("{sum}");
+						continue 'find_loops;
+					},
+					State::OutOfBounds => break,
+					_ => {}
 				}
 			}
 		}
-		println!("{guard_dir} {guard_pos:?}");
-	}
 
-	println!("{grid}");
-	Ok(String::new())
+		Ok(format!("{sum}"))
+	}
 }

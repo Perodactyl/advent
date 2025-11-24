@@ -8,7 +8,7 @@ pub mod prelude {
 	pub use super::pathfind::*;
 
 	pub use std::fmt::{ Display, Debug };
-	pub use std::collections::HashMap;
+	pub use std::collections::{ HashMap, HashSet };
 
 	pub use anyhow::{ Result, bail, anyhow };
 	pub use strum::*;

@@ -89,6 +89,21 @@ pub trait Grid<T> {
 
 		None
 	}
+	///Returns all elements and their coordinates on which `predicate` returns true.
+	fn find_each(&self, predicate: fn(element: &T, x: usize, y: usize) -> bool) -> Vec<(&T, usize, usize)> {
+		let mut output = vec![];
+		for x in 0..self.width() {
+			for y in 0..self.height() {
+				let cell = self.get(x, y);
+				if predicate(cell, x, y) {
+					output.push((cell, x, y));
+				}
+			}
+		}
+
+		output.shrink_to_fit();
+		output
+	}
 	///Returns a Neighborhood around a certain cell.
 	fn get_neighborhood(&self, x: usize, y: usize, structure: &[(isize, isize)], skip_oob: bool) -> Neighborhood {
 		let mut results = Vec::with_capacity(8);
@@ -164,6 +179,7 @@ pub struct NeighborhoodMember {
 pub type Neighborhood = Vec<NeighborhoodMember>;
 
 ///Grid structure for storing a list of items whose size is known at compile time.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ConstSizeGrid<const W: usize, const H: usize, T> {
 	items: [[T; H]; W],
 } impl<const W: usize, const H: usize, T> ConstSizeGrid<W, H, T> {
@@ -227,6 +243,7 @@ impl<const W: usize, const H: usize, T> Grid<T> for ConstSizeGrid<W, H, T> {
 }
 
 ///Grid structure for storing a list of items whose size is unknown at compile time.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ItemGrid<T> {
 	items: Vec<Vec<T>>,
 	width: usize,
