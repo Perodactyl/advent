@@ -1,3 +1,5 @@
 /target
 /input/*/*.input
+/src/years/generated_list.rs
+/src/years/year*/generated_list.rs
 /.env

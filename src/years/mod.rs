@@ -1,8 +1,4 @@
-#[cfg(feature = "year2024")]
-#[allow(dead_code)]
-mod year2024;
-#[cfg(all(feature = "year2024", not(feature = "default")))]
-use year2024 as year;
+include!("generated_list.rs");
 
 #[cfg(feature = "default")]
 mod year {
