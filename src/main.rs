@@ -90,9 +90,9 @@ fn main() -> anyhow::Result<()> {
 	}
 
 	let input = if cfg!(any(feature = "sample", feature = "sample2")) {
-		lib::input::sample(YEAR, DAY).unwrap()
+		lib::input::sample(YEAR, DAY)?
 	} else {
-		lib::input::input(YEAR, DAY).unwrap()
+		lib::input::input(YEAR, DAY)?
 	};
 
 	println!("{}", years::puzzle(input)?);

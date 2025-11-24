@@ -1,3 +1,11 @@
+#[cfg(feature = "day1")]
+mod day1;
+#[cfg(all(feature = "day1", not(feature = "default")))]
+use day1 as day;
+#[cfg(feature = "day2")]
+mod day2;
+#[cfg(all(feature = "day2", not(feature = "default")))]
+use day2 as day;
 #[cfg(feature = "day6")]
 mod day6;
 #[cfg(all(feature = "day6", not(feature = "default")))]
