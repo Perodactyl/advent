@@ -255,6 +255,9 @@ impl<T> ItemGrid<T> {
 	pub fn new() -> ItemGrid<T> {
 		ItemGrid { items: vec![], width: 0, height: 0 }
 	}
+	pub fn new_with_size(width: usize, height: usize, value: T) -> ItemGrid<T> where T: Copy {
+		ItemGrid { items: vec![vec![value; height]; width], width, height }
+	}
 	///Adds a column to the grid. If the grid is empty, the height is set by the column. Otherwise,
 	///panics if the colum length does not match.
 	pub fn add_col(&mut self, col: Vec<T>) {
@@ -293,6 +296,7 @@ impl<T> ItemGrid<T> {
 		}
 		self.items.shrink_to_fit();
 	}
+
 }
 
 impl<T> Grid<T> for ItemGrid<T> {
